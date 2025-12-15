@@ -118,7 +118,6 @@ class ForgejoMCPServer {
     const dangerousPatterns = [
       /\0/,           // Null byte
       /[<>"|?*]/,     // Windows forbidden characters
-      /^\./,          // Hidden files starting with dot
     ];
 
     for (const pattern of dangerousPatterns) {
