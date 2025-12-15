@@ -35,21 +35,23 @@ app.all('/mcp', async (req, res) => {
       transport = transports[sessionId];
     } else if (!sessionId && req.method === 'POST' && isInitializeRequest(req.body)) {
       // Create new transport for initialization request
+      let transportSessionId: string | undefined;
+      
       const newTransport = new StreamableHTTPServerTransport({
         sessionIdGenerator: () => randomUUID(),
         onsessioninitialized: (id) => {
           // Store the transport by session ID when session is initialized
           console.log(`StreamableHTTP session initialized with ID: ${id}`);
+          transportSessionId = id;
           transports[id] = newTransport;
         }
       });
 
       // Set up onclose handler to clean up transport when closed
       newTransport.onclose = () => {
-        const sid = newTransport.sessionId;
-        if (sid && transports[sid]) {
-          console.log(`Transport closed for session ${sid}, removing from transports map`);
-          delete transports[sid];
+        if (transportSessionId && transports[transportSessionId]) {
+          console.log(`Transport closed for session ${transportSessionId}, removing from transports map`);
+          delete transports[transportSessionId];
         }
       };
 
@@ -96,16 +98,28 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Start the server
-const PORT = (() => {
-  if (!process.env.PORT) return 3000;
-  const port = parseInt(process.env.PORT, 10);
-  if (isNaN(port) || port < 1 || port > 65535) {
-    console.error(`Invalid PORT environment variable: ${process.env.PORT}. Using default port 3000.`);
-    return 3000;
+/**
+ * Validates and parses the PORT environment variable.
+ * Returns the validated port number or the default port (3000) if invalid.
+ */
+function validatePort(portString: string | undefined): number {
+  const DEFAULT_PORT = 3000;
+  
+  if (!portString) {
+    return DEFAULT_PORT;
   }
+  
+  const port = parseInt(portString, 10);
+  if (isNaN(port) || port < 1 || port > 65535) {
+    console.error(`Invalid PORT environment variable: ${portString}. Using default port ${DEFAULT_PORT}.`);
+    return DEFAULT_PORT;
+  }
+  
   return port;
-})();
+}
+
+// Start the server
+const PORT = validatePort(process.env.PORT);
 
 app.listen(PORT, () => {
   console.log(`Forgejo MCP HTTP server listening on port ${PORT}`);
