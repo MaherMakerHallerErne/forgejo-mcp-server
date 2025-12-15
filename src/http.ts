@@ -35,18 +35,18 @@ app.all('/mcp', async (req, res) => {
       transport = transports[sessionId];
     } else if (!sessionId && req.method === 'POST' && isInitializeRequest(req.body)) {
       // Create new transport for initialization request
-      transport = new StreamableHTTPServerTransport({
+      const newTransport = new StreamableHTTPServerTransport({
         sessionIdGenerator: () => randomUUID(),
         onsessioninitialized: (id) => {
           // Store the transport by session ID when session is initialized
           console.log(`StreamableHTTP session initialized with ID: ${id}`);
-          transports[id] = transport!;
+          transports[id] = newTransport;
         }
       });
 
       // Set up onclose handler to clean up transport when closed
-      transport.onclose = () => {
-        const sid = transport?.sessionId;
+      newTransport.onclose = () => {
+        const sid = newTransport.sessionId;
         if (sid && transports[sid]) {
           console.log(`Transport closed for session ${sid}, removing from transports map`);
           delete transports[sid];
@@ -55,7 +55,9 @@ app.all('/mcp', async (req, res) => {
 
       // Connect the transport to the MCP server
       const server = createServer();
-      await server.getServer().connect(transport);
+      await server.getServer().connect(newTransport);
+      
+      transport = newTransport;
     } else {
       // Invalid request - no session ID or not initialization request
       res.status(400).json({
