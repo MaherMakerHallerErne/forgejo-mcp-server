@@ -12,6 +12,17 @@ A Model Context Protocol (MCP) server that provides Claude Desktop with tools to
 - Create new issues
 - Read file contents from repositories
 
+## Security
+
+This server has been security audited and includes:
+- Input validation to prevent injection attacks
+- Path traversal protection
+- Secure error handling that doesn't leak sensitive information
+- Environment variable validation
+- URL encoding for all API parameters
+
+For detailed security information, see [SECURITY.md](SECURITY.md).
+
 ## Installation
 
 ```bash
