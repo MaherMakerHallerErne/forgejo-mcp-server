@@ -1,0 +1,163 @@
+#!/usr/bin/env node
+
+import { randomUUID } from 'node:crypto';
+import { createMcpExpressApp } from '@modelcontextprotocol/sdk/server/express.js';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
+import cors from 'cors';
+import { ForgejoMCPServer } from './server.js';
+
+// Create Express application with MCP middleware
+const app = createMcpExpressApp();
+
+// Enable CORS for web clients
+app.use(cors());
+
+// Store transports by session ID
+const transports: Record<string, StreamableHTTPServerTransport> = {};
+
+// Factory function to create a new MCP server instance
+function createServer() {
+  return new ForgejoMCPServer();
+}
+
+// Handle all MCP Streamable HTTP requests (GET, POST, DELETE) on a single endpoint
+app.all('/mcp', async (req, res) => {
+  console.log(`Received ${req.method} request to /mcp`);
+  
+  try {
+    // Check for existing session ID
+    const sessionId = req.headers['mcp-session-id'] as string | undefined;
+    let transport: StreamableHTTPServerTransport | undefined;
+
+    if (sessionId && transports[sessionId]) {
+      // Reuse existing transport
+      transport = transports[sessionId];
+    } else if (!sessionId && req.method === 'POST' && isInitializeRequest(req.body)) {
+      // Create new transport for initialization request
+      let transportSessionId: string | undefined;
+      
+      const newTransport = new StreamableHTTPServerTransport({
+        sessionIdGenerator: () => randomUUID(),
+        onsessioninitialized: (id) => {
+          // Store the transport by session ID when session is initialized
+          console.log(`StreamableHTTP session initialized with ID: ${id}`);
+          transportSessionId = id;
+          transports[id] = newTransport;
+        }
+      });
+
+      // Set up onclose handler to clean up transport when closed
+      newTransport.onclose = () => {
+        if (transportSessionId && transports[transportSessionId]) {
+          console.log(`Transport closed for session ${transportSessionId}, removing from transports map`);
+          delete transports[transportSessionId];
+        }
+      };
+
+      // Connect the transport to the MCP server
+      const server = createServer();
+      await server.getServer().connect(newTransport);
+      
+      transport = newTransport;
+    } else {
+      // Invalid request - no session ID or not initialization request
+      res.status(400).json({
+        jsonrpc: '2.0',
+        error: {
+          code: -32000,
+          message: 'Bad Request: No valid session ID provided or invalid initialization request'
+        },
+        id: null
+      });
+      return;
+    }
+
+    // Handle the request with the transport
+    await transport.handleRequest(req, res, req.body);
+  } catch (error) {
+    console.error('Error handling MCP request:', error);
+    if (!res.headersSent) {
+      res.status(500).json({
+        jsonrpc: '2.0',
+        error: {
+          code: -32603,
+          message: 'Internal server error'
+        },
+        id: null
+      });
+    }
+  }
+});
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    activeSessions: Object.keys(transports).length
+  });
+});
+
+/**
+ * Validates and parses the PORT environment variable.
+ * Returns the validated port number or the default port (3000) if invalid.
+ */
+function validatePort(portString: string | undefined): number {
+  const DEFAULT_PORT = 3000;
+  
+  if (!portString) {
+    return DEFAULT_PORT;
+  }
+  
+  const port = parseInt(portString, 10);
+  if (isNaN(port) || port < 1 || port > 65535) {
+    console.error(`Invalid PORT environment variable: ${portString}. Using default port ${DEFAULT_PORT}.`);
+    return DEFAULT_PORT;
+  }
+  
+  return port;
+}
+
+// Start the server
+const PORT = validatePort(process.env.PORT);
+
+app.listen(PORT, () => {
+  console.log(`Forgejo MCP HTTP server listening on port ${PORT}`);
+  console.log(`
+==============================================
+MCP STREAMABLE HTTP ENDPOINT:
+  Endpoint: http://localhost:${PORT}/mcp
+  Protocol: Streamable HTTP (uses SSE for server-to-client messages)
+  Methods: GET, POST, DELETE
+  
+  Usage:
+    - Initialize with POST to /mcp (returns session ID)
+    - Establish event stream with GET to /mcp (with mcp-session-id header)
+    - Send requests with POST to /mcp (with mcp-session-id header)
+    - Terminate session with DELETE to /mcp (with mcp-session-id header)
+
+HEALTH CHECK:
+  Endpoint: http://localhost:${PORT}/health
+  Method: GET
+==============================================
+`);
+});
+
+// Handle server shutdown
+process.on('SIGINT', async () => {
+  console.log('Shutting down server...');
+  
+  // Close all active transports to properly clean up resources
+  for (const sessionId in transports) {
+    try {
+      console.log(`Closing transport for session ${sessionId}`);
+      await transports[sessionId].close();
+      delete transports[sessionId];
+    } catch (error) {
+      console.error(`Error closing transport for session ${sessionId}:`, error);
+    }
+  }
+  
+  console.log('Server shutdown complete');
+  process.exit(0);
+});
