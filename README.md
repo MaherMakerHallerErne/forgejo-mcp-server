@@ -1,6 +1,6 @@
 # Forgejo MCP Server
 
-A Model Context Protocol (MCP) server that provides tools to interact with Forgejo repositories. Supports both stdio transport (for Claude Desktop) and HTTP+SSE transport (for web clients and other integrations).
+A Model Context Protocol (MCP) server that provides tools to interact with Forgejo repositories. Supports both stdio transport (for Claude Desktop) and Streamable HTTP transport with SSE (for web clients and other integrations).
 
 ![Forgejo MCP Server](.github/img/image.png)
 
@@ -11,7 +11,7 @@ A Model Context Protocol (MCP) server that provides tools to interact with Forge
 - List issues with filtering by state
 - Create new issues
 - Read file contents from repositories
-- **SSE Compatible**: Supports both stdio and HTTP+SSE transports
+- **Multiple Transports**: Supports both stdio and Streamable HTTP (with SSE) transports
 
 ## Security
 
@@ -73,7 +73,7 @@ Add the following to your Claude Desktop configuration file:
 
 Replace the path and credentials with your actual values.
 
-### HTTP+SSE Server (Web Integration)
+### Streamable HTTP Server (Web Integration)
 
 For web clients or custom integrations, run the HTTP server:
 
@@ -87,9 +87,9 @@ export PORT=3000  # Optional, defaults to 3000
 npm run start:http
 ```
 
-The server will expose an MCP-compatible HTTP endpoint at `http://localhost:3000/mcp` that supports:
+The server uses the MCP Streamable HTTP transport protocol, which uses SSE (Server-Sent Events) for server-to-client messages. The endpoint at `http://localhost:3000/mcp` supports:
 - **POST** for initialization and sending requests
-- **GET** for establishing SSE streams (requires `mcp-session-id` header)
+- **GET** for establishing the event stream (requires `mcp-session-id` header)
 - **DELETE** for session termination
 
 A health check endpoint is available at `http://localhost:3000/health`.
@@ -105,9 +105,9 @@ After configuration, restart Claude Desktop. You can then use commands like:
 - "Create an issue in repository with title 'Bug report'"
 - "Show the contents of README.md from repository"
 
-### With HTTP+SSE
+### With Streamable HTTP
 
-The HTTP server can be integrated with any MCP-compatible client that supports the Streamable HTTP transport. Use the `/mcp` endpoint with proper session management.
+The HTTP server can be integrated with any MCP-compatible client that supports the Streamable HTTP transport protocol. Use the `/mcp` endpoint with proper session management.
 
 ## Available Tools
 

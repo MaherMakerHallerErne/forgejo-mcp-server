@@ -109,13 +109,14 @@ app.listen(PORT, () => {
   console.log(`Forgejo MCP HTTP server listening on port ${PORT}`);
   console.log(`
 ==============================================
-MCP HTTP ENDPOINT:
+MCP STREAMABLE HTTP ENDPOINT:
   Endpoint: http://localhost:${PORT}/mcp
+  Protocol: Streamable HTTP (uses SSE for server-to-client messages)
   Methods: GET, POST, DELETE
   
   Usage:
-    - Initialize with POST to /mcp
-    - Establish SSE stream with GET to /mcp (with mcp-session-id header)
+    - Initialize with POST to /mcp (returns session ID)
+    - Establish event stream with GET to /mcp (with mcp-session-id header)
     - Send requests with POST to /mcp (with mcp-session-id header)
     - Terminate session with DELETE to /mcp (with mcp-session-id header)
 
