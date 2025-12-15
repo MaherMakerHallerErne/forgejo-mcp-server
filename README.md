@@ -1,6 +1,6 @@
 # Forgejo MCP Server
 
-A Model Context Protocol (MCP) server that provides Claude Desktop with tools to interact with Forgejo repositories.
+A Model Context Protocol (MCP) server that provides tools to interact with Forgejo repositories. Supports both stdio transport (for Claude Desktop) and HTTP+SSE transport (for web clients and other integrations).
 
 ![Forgejo MCP Server](.github/img/image.png)
 
@@ -11,6 +11,7 @@ A Model Context Protocol (MCP) server that provides Claude Desktop with tools to
 - List issues with filtering by state
 - Create new issues
 - Read file contents from repositories
+- **SSE Compatible**: Supports both stdio and HTTP+SSE transports
 
 ## Security
 
@@ -28,8 +29,8 @@ For detailed security information, see [SECURITY.md](SECURITY.md).
 ```bash
 git clone https://github.com/nsvk13/forgejo-mcp-server
 cd forgejo-mcp-server
-bun install
-bun run build
+npm install
+npm run build
 ```
 
 ## Configuration
@@ -48,7 +49,7 @@ Set the following environment variables:
 3. Generate a new token with appropriate permissions
 4. Copy the token for use in configuration
 
-### Claude Desktop Configuration
+### Claude Desktop Configuration (Stdio Transport)
 
 Add the following to your Claude Desktop configuration file:
 
@@ -72,7 +73,30 @@ Add the following to your Claude Desktop configuration file:
 
 Replace the path and credentials with your actual values.
 
+### HTTP+SSE Server (Web Integration)
+
+For web clients or custom integrations, run the HTTP server:
+
+```bash
+# Set environment variables
+export FORGEJO_BASE_URL="https://your-forgejo-instance.com"
+export FORGEJO_TOKEN="your_api_token_here"
+export PORT=3000  # Optional, defaults to 3000
+
+# Start the HTTP server
+npm run start:http
+```
+
+The server will expose an MCP-compatible HTTP endpoint at `http://localhost:3000/mcp` that supports:
+- **POST** for initialization and sending requests
+- **GET** for establishing SSE streams (requires `mcp-session-id` header)
+- **DELETE** for session termination
+
+A health check endpoint is available at `http://localhost:3000/health`.
+
 ## Usage
+
+### With Claude Desktop (Stdio)
 
 After configuration, restart Claude Desktop. You can then use commands like:
 
@@ -80,6 +104,10 @@ After configuration, restart Claude Desktop. You can then use commands like:
 - "Show issues in repository owner/repo-name"
 - "Create an issue in repository with title 'Bug report'"
 - "Show the contents of README.md from repository"
+
+### With HTTP+SSE
+
+The HTTP server can be integrated with any MCP-compatible client that supports the Streamable HTTP transport. Use the `/mcp` endpoint with proper session management.
 
 ## Available Tools
 
@@ -93,14 +121,18 @@ After configuration, restart Claude Desktop. You can then use commands like:
 
 ```bash
 # Build the project
-bun run build
+npm run build
 
-# Run in development mode
-bun run dev
+# Run stdio server in development mode
+npm run dev
+
+# Run HTTP server in development mode
+npm run dev:http
 ```
 
 ## Requirements
 
-- Bun 1 or higher
+- Node.js 18 or higher
+- npm or bun
 - TypeScript
 - Valid Forgejo instance with API access
