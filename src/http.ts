@@ -46,7 +46,7 @@ app.all('/mcp', async (req, res) => {
 
       // Set up onclose handler to clean up transport when closed
       transport.onclose = () => {
-        const sid = transport!.sessionId;
+        const sid = transport?.sessionId;
         if (sid && transports[sid]) {
           console.log(`Transport closed for session ${sid}, removing from transports map`);
           delete transports[sid];
@@ -95,7 +95,15 @@ app.get('/health', (req, res) => {
 });
 
 // Start the server
-const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
+const PORT = (() => {
+  if (!process.env.PORT) return 3000;
+  const port = parseInt(process.env.PORT, 10);
+  if (isNaN(port) || port < 1 || port > 65535) {
+    console.error(`Invalid PORT environment variable: ${process.env.PORT}. Using default port 3000.`);
+    return 3000;
+  }
+  return port;
+})();
 
 app.listen(PORT, () => {
   console.log(`Forgejo MCP HTTP server listening on port ${PORT}`);

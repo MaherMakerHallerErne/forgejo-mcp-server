@@ -4,9 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "build": "npm run build:stdio && npm run build:http",
-    "build:stdio": "tsc src/index.ts --outDir dist --module ESNext --moduleResolution node --target ES2022 --esModuleInterop --skipLibCheck",
-    "build:http": "tsc src/http.ts --outDir dist --module ESNext --moduleResolution node --target ES2022 --esModuleInterop --skipLibCheck",
+    "build": "tsc",
     "build:tsc": "tsc",
     "start": "node dist/index.js",
     "start:http": "node dist/http.js",
